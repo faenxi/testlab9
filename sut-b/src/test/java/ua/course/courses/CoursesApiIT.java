@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * API tests: real Spring context + real PostgreSQL (DB_* env variables, migrations applied beforehand).
  * Every test creates unique data and removes it afterwards.
  */
-@SpringBootTest
+@SpringBootTest(properties = "spring.flyway.enabled=false")
 @AutoConfigureMockMvc
 class CoursesApiIT {
     @Autowired MockMvc mvc;
