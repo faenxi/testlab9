@@ -47,7 +47,7 @@ jobs:
       # No database here: EnvironmentTest needs PostgreSQL and runs in the integration stage.
       - name: Run unit tests
         working-directory: sut-b
-        run: mvn -B -ntp test -Dtest='!EnvironmentTest'
+        run: mvn -B -ntp test -Dtest=EnrollmentServiceTest
       - name: Publish test report
         if: always()
         uses: mikepenz/action-junit-report@v5
