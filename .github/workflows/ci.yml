@@ -85,6 +85,7 @@ jobs:
       DB_NAME: courses_variant01_test
       DB_USER: courses_student
       DB_PASSWORD: courses_pass
+      SPRING_FLYWAY_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
