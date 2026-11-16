@@ -1,0 +1,11 @@
+--- a/sut-b/src/main/java/ua/course/courses/EnrollmentService.java	2026-11-16 19:02:41.297211848 +0000
++++ b/sut-b/src/main/java/ua/course/courses/EnrollmentService.java	2026-11-16 19:02:41.298002416 +0000
+@@ -13,7 +13,7 @@
+     }
+     public long calculateTotal(long price,boolean regular,boolean couponValid) {
+         if(price<100 || price>10000000) throw new IllegalArgumentException("Некоректна ціна");
+-        int percent=couponValid?15:regular?8:0;
++        int percent=couponValid?15:regular?5:0;
+         return price-price*percent/100;
+     }
+     public boolean isEligible(int age,int entryScore,int level,boolean regular) {

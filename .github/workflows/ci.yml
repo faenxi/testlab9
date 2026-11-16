@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  JAVA_VERSION: "21"
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: Compile and package (tests are run in the next stages)
+        working-directory: sut-b
+        run: mvn -B -ntp package -DskipTests
+      - name: Upload application jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: sut-b-jar
+          path: sut-b/target/*.jar
+          if-no-files-found: error
+
+  unit-tests:
+    name: Unit tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      # No database here: EnvironmentTest needs PostgreSQL and runs in the integration stage.
+      - name: Run unit tests
+        working-directory: sut-b
+        run: mvn -B -ntp test -Dtest='!EnvironmentTest'
+      - name: Publish test report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: sut-b/target/surefire-reports/TEST-*.xml
+          check_name: Unit test report
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: sut-b/target/surefire-reports/
+
+  integration-tests:
+    name: Integration / API tests
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: courses_student
+          POSTGRES_PASSWORD: courses_pass
+          POSTGRES_DB: courses_variant01_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U courses_student -d courses_variant01_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: courses_variant01_test
+      DB_USER: courses_student
+      DB_PASSWORD: courses_pass
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: Apply database migration
+        working-directory: sut-b
+        env:
+          PGPASSWORD: courses_pass
+        run: psql -h localhost -U courses_student -d courses_variant01_test -v ON_ERROR_STOP=1 -f migrations/V1__create_tables.sql
+      # surefire (EnvironmentTest + unit tests) and failsafe (*ApiIT, *RepositoryIT); verify fails if any test fails
+      - name: Run integration and API tests
+        working-directory: sut-b
+        run: mvn -B -ntp verify
+      - name: Publish test report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: |
+            sut-b/target/surefire-reports/TEST-*.xml
+            sut-b/target/failsafe-reports/TEST-*.xml
+          check_name: Integration test report
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports
+          path: |
+            sut-b/target/surefire-reports/
+            sut-b/target/failsafe-reports/
